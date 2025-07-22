@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 from database import init_db, save_data_to_db
+from module_openai_timestamp import calculate_timestamp
 
 # Load environment variables
 load_dotenv()
@@ -31,7 +32,7 @@ def parse_date_category(text):
     """Parse date and category from text like 'date, category'"""
     try:
         parts = [part.strip() for part in text.split(',')]
-        if len(parts) == 2:
+        if len(parts) == 3:
             return parts[0], parts[1]
         return None, None
     except:
@@ -76,7 +77,7 @@ class DataCollector:
             else:
                 parsed_date, parsed_category = parse_date_category(msg)
                 if parsed_date and parsed_category:
-                    date = parsed_date
+                    date = calculate_timestamp(parsed_date)
                     category = parsed_category
         
         # Remove processed messages
