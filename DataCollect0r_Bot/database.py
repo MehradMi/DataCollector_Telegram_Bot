@@ -99,3 +99,18 @@ def get_all_data():
     except Exception as e:
         logger.error(f"Failed to retrieve all data: {e}")
         return []
+    
+def get_payload_data():
+    try: 
+        conn = sqlite3.connect(DB_FILE_PATH, check_same_thread=False)
+        cur = conn.cursor()
+
+        cur.execute("SELECT url, category, date, description FROM dataset")
+        rows = cur.fetchall()
+
+        conn.close()
+        return rows
+
+    except Exception as e:
+        logger.error(f"Failed to retrieve payload data: {e}")
+        return []
