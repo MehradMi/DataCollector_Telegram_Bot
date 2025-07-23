@@ -19,7 +19,8 @@ CREATE TABLE IF NOT EXISTS dataset (
                  category TEXT,
                  url TEXT,
                  date TEXT,
-                 UNIQUE (telegram_id, url)
+                 description TEXT,
+                 UNIQUE (telegram_id, url, category)
                  )
 """)
         
@@ -44,23 +45,24 @@ def save_data_to_db(data):
         cur = conn.cursor()
         
         cur.execute("""
-INSERT INTO dataset VALUES (?, ?, ?, ?, ?)
-                    ON CONFLICT (telegram_id, url) DO UPDATE SET
+INSERT INTO dataset VALUES (?, ?, ?, ?, ?, ?)
+                    ON CONFLICT (telegram_id, url, category) DO UPDATE SET
                     username = excluded.username,
-                    category = excluded.category,
-                    date = excluded.date
+                    date = excluded.date,
+                    description = excluded.description
 """, (
         data.get("telegram_id"),
         data.get("username"),
         data.get("category"),
         data.get("url"),
-        data.get("date")
+        data.get("date"),
+        data.get("description", "")
     )) 
 
         conn.commit()
         conn.close()
         
-        logger.info(f"Data saved for user {data.get('telegram_id')}: {data.get('url')}")
+        logger.info(f"Data saved for user {data.get('telegram_id')}: {data.get('url')} - {data.get('category')}")
         
     except Exception as e:
         logger.error(f"Failed to save data to database: {e}")

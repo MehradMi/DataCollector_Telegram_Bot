@@ -11,16 +11,16 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 client = OpenAI(api_key=OPENAI_API_KEY)
 # =============================== 
 
-def calculate_timestamp(date):
+def calculate_timestamp(date, time_now):
     response = client.responses.create(
-        model="gpt-4.1",
+        model="gpt-4.1-mini",
         input=[
             {
                 "role": "user",
                 "content": [
                     {
                         "type": "input_text",
-                        "text": """
+                        "text": f"""
                                     You are a strict date parser.
                                     I will give you a date in one of the following formats:
 
@@ -42,7 +42,7 @@ def calculate_timestamp(date):
 
                                     Assume system timezone is Asia/Tehran
 
-                                    Assume current date and time is exactly: 2025-07-22 12:00:00 (Tehran time)
+                                    Assume current date and time is exactly: {time_now} (Tehran time)
 
                                     If ambiguous (e.g., "9 June"), assume it refers to the most recent past occurrence
 
