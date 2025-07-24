@@ -1,7 +1,8 @@
 import os
 import requests
 from dotenv import load_dotenv
-from database import get_payload_data
+from database import get_payload_data, change_upload_status
+from module_openai_categorizer import categorize
 
 # Load environment variables and API_URL
 load_dotenv()
@@ -9,16 +10,25 @@ API_URL = os.getenv("API_URL")
 # ===========================
 
 HEADERS = {"Content-Type": "application/json"}
+CORRECT_CATEGORIES = ["general", "clothing", "medical",
+                      "restaurant", "AI", "fun",
+                      "beauty", "medical", "education", "other"
+                      ]
 
 rows = get_payload_data()
 
 for row in rows:
-    url, category, date, description = row
+    rowid, url, category, date, description = row
+    categorized_value = categorize(category)
+    while categorized_value not in CORRECT_CATEGORIES:
+        categorized_value = categorize(category) 
+    
+    print (categorized_value)
     payload = [
         {
         "post_url": url,
         "date": date,
-        "category": category,
+        "category": categorized_value,
         "description": description
     }
     ]
@@ -27,6 +37,7 @@ for row in rows:
         response = requests.post(API_URL, json=payload, headers=HEADERS)
         if response.status_code == 200:
             print("✅ Sent:", payload)
+            change_upload_status(rowid)
         else:
             print(f"❌ Failed for {url}: {response.status_code} - {response.text}")
     except Exception as e:
