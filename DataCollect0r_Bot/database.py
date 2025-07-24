@@ -52,7 +52,7 @@ CREATE TABLE IF NOT EXISTS dataset_backup(
     except Exception as e:
         logger.error(f"Failed to initialize database: {e}")
         raise
-    
+
 def save_data_to_db(data):
     """Save data to the database with conflict resolution"""
     try:
@@ -83,7 +83,8 @@ INSERT INTO dataset VALUES (?, ?, ?, ?, ?, ?, ?)
     )) 
 
         conn.commit()
-        conn.close()        
+        conn.close()
+        
         logger.info(f"Data saved for user {data.get('telegram_id')}: {data.get('url')} - {data.get('category')}")
         
     except Exception as e:
@@ -160,4 +161,3 @@ INSERT INTO dataset_backup (telegram_id, username, category, url, date, descript
     except Exception as e:
         logger.error(f"Failed to update 'upload_status' column: {e}")
         return []
-    
