@@ -26,8 +26,7 @@ CREATE TABLE IF NOT EXISTS dataset (
                  UNIQUE (telegram_id, url, category)
                  )
 """)
-        conn.commit()
-
+        
         # Create the "dataset_backup" table
         cur.execute("""
 CREATE TABLE IF NOT EXISTS dataset_backup(
