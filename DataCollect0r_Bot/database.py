@@ -12,6 +12,8 @@ def init_db():
     try:
         conn = sqlite3.connect(DB_FILE_PATH, check_same_thread=False)
         cur = conn.cursor()
+        
+        # Create the "dataset" table
         cur.execute("""
 CREATE TABLE IF NOT EXISTS dataset (
                  telegram_id INT,
@@ -22,6 +24,24 @@ CREATE TABLE IF NOT EXISTS dataset (
                  description TEXT,
                  upload_status TEXT DEFAULT 'not_uploaded',
                  UNIQUE (telegram_id, url, category)
+                 )
+""")
+        conn.commit()
+        conn.close()
+        
+        conn = sqlite3.connect(DB_FILE_PATH, check_same_thread=False)
+        cur = conn.cursor()
+
+        # Create the "dataset_backup" table
+        cur.execute("""
+CREATE TABLE IF NOT EXISTS dataset_backup(
+                 telegram_id INT,
+                 username TEXT,
+                 category TEXT,
+                 url TEXT,
+                 date TEXT,
+                 description TEXT,
+                 upload_status TEXT
                  )
 """)
         
@@ -46,10 +66,11 @@ def save_data_to_db(data):
         cur = conn.cursor()
         
         cur.execute("""
-INSERT INTO dataset VALUES (?, ?, ?, ?, ?, ?)
+INSERT INTO dataset VALUES (?, ?, ?, ?, ?, ?, ?)
                     ON CONFLICT (telegram_id, url, category) DO UPDATE SET
                     username = excluded.username,
                     date = excluded.date,
+                    upload_status = excluded.upload_status,
                     description = excluded.description
 """, (
         data.get("telegram_id"),
@@ -57,6 +78,7 @@ INSERT INTO dataset VALUES (?, ?, ?, ?, ?, ?)
         data.get("category"),
         data.get("url"),
         data.get("date"),
+        data.get("upload_status"),
         data.get("description", "")
     )) 
 
@@ -106,7 +128,7 @@ def get_payload_data():
         conn = sqlite3.connect(DB_FILE_PATH, check_same_thread=False)
         cur = conn.cursor()
 
-        cur.execute("SELECT rowid, url, category, date, description FROM dataset")
+        cur.execute("SELECT rowid, telegram_id, username, url, category, date, description FROM dataset")
         rows = cur.fetchall()
 
         conn.close()
@@ -116,12 +138,23 @@ def get_payload_data():
         logger.error(f"Failed to retrieve payload data: {e}")
         return []
     
-def change_upload_status(rowid):
+def change_upload_status(rowid, telegram_id, username, url, category, date, description):
     try:
         conn = sqlite3.connect(DB_FILE_PATH, check_same_thread=False)
         cur = conn.cursor()
 
         cur.execute("UPDATE dataset SET upload_status = 'uploaded' WHERE rowid = ?", (rowid,))
+        conn.commit()
+
+        cur.execute("""
+INSERT INTO dataset_backup (telegram_id, username, category, url, date, description, upload_status) VALUES (?, ?, ?, ?, ?, ?, ?)
+""", 
+(telegram_id, username, category, url, date, description, "uploaded")
+)
+        
+        # Delete from original
+        cur.execute("DELETE FROM dataset WHERE rowid = ?", (rowid,))
+
         conn.commit()
         conn.close()
     

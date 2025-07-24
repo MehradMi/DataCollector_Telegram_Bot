@@ -18,12 +18,11 @@ CORRECT_CATEGORIES = ["general", "clothing", "medical",
 rows = get_payload_data()
 
 for row in rows:
-    rowid, url, category, date, description = row
+    rowid, telegram_id, username, url, category, date, description = row
     categorized_value = categorize(category)
     while categorized_value not in CORRECT_CATEGORIES:
         categorized_value = categorize(category) 
     
-    print (categorized_value)
     payload = [
         {
         "post_url": url,
@@ -37,7 +36,10 @@ for row in rows:
         response = requests.post(API_URL, json=payload, headers=HEADERS)
         if response.status_code == 200:
             print("✅ Sent:", payload)
-            change_upload_status(rowid)
+            change_upload_status(rowid, telegram_id, username,
+                                 url, category, date, 
+                                 description
+                                 )
         else:
             print(f"❌ Failed for {url}: {response.status_code} - {response.text}")
     except Exception as e:

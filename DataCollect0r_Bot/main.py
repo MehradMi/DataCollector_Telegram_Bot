@@ -101,13 +101,13 @@ class DataCollector:
             try:
                 # Prepare data for storing in database
                 categories_list = categories.strip().split("/")
-                print(categories_list)
                 for category in categories_list:
                     data = {
                         'telegram_id': user_id,
                         'username': username,
                         'category': category,
                         'description': description,
+                        'upload_status': 'not_uploaded',
                         'url': url,
                         'date': date
                     }
