@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS dataset (
                  url TEXT,
                  date TEXT,
                  description TEXT,
-                 upload_status TEXT DEFAULT 'not_uploaded',
+                 upload_status TEXT,
                  UNIQUE (telegram_id, url, category)
                  )
 """)
@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS dataset (
 
         # Create the "dataset_backup" table
         cur.execute("""
-CREATE TABLE IF NOT EXISTS dataset_backup(
+CREATE TABLE IF NOT EXISTS dataset_backup (
                  telegram_id INT,
                  username TEXT,
                  category TEXT,
@@ -78,8 +78,8 @@ INSERT INTO dataset VALUES (?, ?, ?, ?, ?, ?, ?)
         data.get("category"),
         data.get("url"),
         data.get("date"),
-        data.get("upload_status"),
-        data.get("description", "")
+        data.get("description"),
+        data.get("upload_status")
     )) 
 
         conn.commit()
@@ -128,7 +128,7 @@ def get_payload_data():
         conn = sqlite3.connect(DB_FILE_PATH, check_same_thread=False)
         cur = conn.cursor()
 
-        cur.execute("SELECT rowid, telegram_id, username, url, category, date, description FROM dataset")
+        cur.execute("SELECT rowid, telegram_id, username, url, category, date, upload_status, description FROM dataset")
         rows = cur.fetchall()
 
         conn.close()
@@ -138,18 +138,20 @@ def get_payload_data():
         logger.error(f"Failed to retrieve payload data: {e}")
         return []
     
-def change_upload_status(rowid, telegram_id, username, url, category, date, description):
+def change_upload_status(rowid, telegram_id, username, url, category, date, description, upload_status):
+    upload_status = "uploaded"
     try:
         conn = sqlite3.connect(DB_FILE_PATH, check_same_thread=False)
         cur = conn.cursor()
 
-        cur.execute("UPDATE dataset SET upload_status = 'uploaded' WHERE rowid = ?", (rowid,))
+        cur.execute(f"UPDATE dataset SET upload_status = '{upload_status}' WHERE rowid = ?", (rowid,))
         conn.commit()
 
+        print(description)
         cur.execute("""
 INSERT INTO dataset_backup (telegram_id, username, category, url, date, description, upload_status) VALUES (?, ?, ?, ?, ?, ?, ?)
 """, 
-(telegram_id, username, category, url, date, description, "uploaded")
+(telegram_id, username, category, url, date, description, upload_status)
 )
         
         # Delete from original

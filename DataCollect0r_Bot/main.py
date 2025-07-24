@@ -76,6 +76,7 @@ class DataCollector:
         date = None
         categories = None
         description = None
+        upload_status = "not uploaded"
 
         # Check which message is URL and which is date,categories, description(optional)
         for msg in messages:
@@ -107,9 +108,9 @@ class DataCollector:
                         'username': username,
                         'category': category,
                         'description': description,
-                        'upload_status': 'not_uploaded',
                         'url': url,
-                        'date': date
+                        'date': date,
+                        'upload_status': upload_status
                     }
                 
                     # Save to database
