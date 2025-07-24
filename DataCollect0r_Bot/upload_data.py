@@ -38,7 +38,7 @@ for row in rows:
             print("✅ Sent:", payload)
             print(description)
             change_upload_status(rowid, telegram_id, username,
-                                 url, category, date, 
+                                 url, categorized_value, date, 
                                  description, upload_status
                                  )
         else:
