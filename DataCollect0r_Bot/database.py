@@ -26,7 +26,12 @@ CREATE TABLE IF NOT EXISTS dataset (
                  UNIQUE (telegram_id, url, category)
                  )
 """)
+        conn.commit()
+        conn.close()
         
+        conn = sqlite3.connect(DB_FILE_PATH, check_same_thread=False)
+        cur = conn.cursor()
+
         # Create the "dataset_backup" table
         cur.execute("""
 CREATE TABLE IF NOT EXISTS dataset_backup(
@@ -38,16 +43,16 @@ CREATE TABLE IF NOT EXISTS dataset_backup(
                  description TEXT,
                  upload_status TEXT
                  )
-""")        
-
+""")
+        
         conn.commit()
-        conn.close() 
+        conn.close()
         logger.info("Database initialized successfully")
         
     except Exception as e:
         logger.error(f"Failed to initialize database: {e}")
         raise
-
+    
 def save_data_to_db(data):
     """Save data to the database with conflict resolution"""
     try:
@@ -78,8 +83,7 @@ INSERT INTO dataset VALUES (?, ?, ?, ?, ?, ?, ?)
     )) 
 
         conn.commit()
-        conn.close()
-        
+        conn.close()        
         logger.info(f"Data saved for user {data.get('telegram_id')}: {data.get('url')} - {data.get('category')}")
         
     except Exception as e:
