@@ -27,16 +27,6 @@ CREATE TABLE IF NOT EXISTS dataset (
                  )
 """)
         conn.commit()
-        conn.close() 
-        logger.info("Database initialized successfully")
-        
-    except Exception as e:
-        logger.error(f"Failed to initialize database: {e}")
-        raise
-
-    try: 
-        conn = sqlite3.connect(DB_FILE_PATH, check_same_thread=False)
-        cur = conn.cursor()
 
         # Create the "dataset_backup" table
         cur.execute("""
@@ -52,9 +42,9 @@ CREATE TABLE IF NOT EXISTS dataset_backup(
 """)        
 
         conn.commit()
-        conn.close()
+        conn.close() 
         logger.info("Database initialized successfully")
-
+        
     except Exception as e:
         logger.error(f"Failed to initialize database: {e}")
         raise
@@ -97,6 +87,38 @@ INSERT INTO dataset VALUES (?, ?, ?, ?, ?, ?, ?)
         logger.error(f"Failed to save data to database: {e}")
         raise
 
+def get_user_data(telegram_id):
+    """Get all data for a specific user (optional utility function)"""
+    try:
+        conn = sqlite3.connect(DB_FILE_PATH, check_same_thread=False)
+        cur = conn.cursor()
+        
+        cur.execute("SELECT * FROM dataset WHERE telegram_id = ?", (telegram_id,))
+        results = cur.fetchall()
+        
+        conn.close()
+        return results
+        
+    except Exception as e:
+        logger.error(f"Failed to retrieve user data: {e}")
+        return []
+
+def get_all_data():
+    """Get all data from database (optional utility function)"""
+    try:
+        conn = sqlite3.connect(DB_FILE_PATH, check_same_thread=False)
+        cur = conn.cursor()
+        
+        cur.execute("SELECT * FROM dataset")
+        results = cur.fetchall()
+        
+        conn.close()
+        return results
+        
+    except Exception as e:
+        logger.error(f"Failed to retrieve all data: {e}")
+        return []
+    
 def get_payload_data():
     try: 
         conn = sqlite3.connect(DB_FILE_PATH, check_same_thread=False)
@@ -134,37 +156,5 @@ INSERT INTO dataset_backup (telegram_id, username, category, url, date, descript
     
     except Exception as e:
         logger.error(f"Failed to update 'upload_status' column: {e}")
-        return []
-    
-def get_user_data(telegram_id):
-    """Get all data for a specific user (optional utility function)"""
-    try:
-        conn = sqlite3.connect(DB_FILE_PATH, check_same_thread=False)
-        cur = conn.cursor()
-        
-        cur.execute("SELECT * FROM dataset WHERE telegram_id = ?", (telegram_id,))
-        results = cur.fetchall()
-        
-        conn.close()
-        return results
-        
-    except Exception as e:
-        logger.error(f"Failed to retrieve user data: {e}")
-        return []
-
-def get_all_data():
-    """Get all data from database (optional utility function)"""
-    try:
-        conn = sqlite3.connect(DB_FILE_PATH, check_same_thread=False)
-        cur = conn.cursor()
-        
-        cur.execute("SELECT * FROM dataset")
-        results = cur.fetchall()
-        
-        conn.close()
-        return results
-        
-    except Exception as e:
-        logger.error(f"Failed to retrieve all data: {e}")
         return []
     
