@@ -1,0 +1,19 @@
+version: "3.9"
+
+services:
+  bot:
+    build: .
+    command: python main.py
+    env_file: .env
+    volumes:
+      - ./dataset.db:/app/dataset.db
+    restart: always
+
+  uploader:
+    build: .
+    # Run upload_data.py every 12 hours via cron
+    command: sh -c "echo '0 */12 * * * python /app/upload_data.py >> /var/log/cron.log 2>&1' | crontab - && cron -f"
+    env_file: .env
+    volumes:
+      - ./dataset.db:/app/dataset.db
+    restart: always
