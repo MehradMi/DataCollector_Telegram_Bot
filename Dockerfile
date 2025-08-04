@@ -4,7 +4,11 @@ FROM python:3.11-slim
 WORKDIR /app
 
 # Install system dependencies (cron for uploader scheduling)
-RUN apt-get update && apt-get install -y sqlite3 cron && rm -rf /var/lib/apt/lists/*
+#RUN apt-get update && apt-get install -y sqlite3 cron && rm -rf /var/lib/apt/lists/*
+
+# Install system dependencies with DNF
+RUN dnf -y install sqlite cronie && \
+    dnf clean all
 
 # Copy requirements and install
 COPY requirements.txt .
