@@ -41,6 +41,8 @@ def categorize(category):
 
                                     education
 
+                                    inspirational
+
                                     other
 
                                     Rules:

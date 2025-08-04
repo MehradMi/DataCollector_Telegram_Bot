@@ -12,7 +12,7 @@ API_URL = os.getenv("API_URL")
 HEADERS = {"Content-Type": "application/json"}
 CORRECT_CATEGORIES = ["general", "clothing", "medical",
                       "restaurant", "AI", "fun",
-                      "beauty", "medical", "education", "other"
+                      "beauty", "medical", "education", "inspirational", "other"
                       ]
 
 rows = get_payload_data()
