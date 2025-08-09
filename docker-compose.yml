@@ -7,7 +7,7 @@ services:
     env_file:
       - .env 
     volumes:
-      - db_data:/app/DataCollect0r_Bot/dataset.db
+      - db_data:/app/DataCollect0r_Bot
     restart: unless-stopped
 
 volumes:
