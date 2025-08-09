@@ -5,7 +5,7 @@ services:
     build: .
     container_name: datacollect0r_bot
     env_file:
-      - .env
+      - .env 
     volumes:
       - db_data:/app/DataCollect0r_Bot/dataset.db
     restart: unless-stopped
