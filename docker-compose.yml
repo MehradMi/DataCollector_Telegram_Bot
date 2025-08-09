@@ -1,19 +1,14 @@
-version: "3.8"
+version: '3.8'
 
 services:
-  data_collector_bot:
+  datacollect0r_bot:
     build: .
-    command: python DataCollect0r_Bot/main.py
-    env_file: .env
+    container_name: datacollect0r_bot
+    env_file:
+      - .env
     volumes:
-      - ./dataset.db:/app/DataCollect0r_Bot/dataset.db
-    restart: always
+      - db_data:/app/DataCollect0r_Bot/dataset.db
+    restart: unless-stopped
 
-  uploader:
-    build: .
-    # Run upload_data.py every 12 hours via cron
-    command: sh -c "echo '0 */12 * * * python /app/DataCollect0r_Bot/upload_data.py ...' | crontab - && cron -f"
-    env_file: .env
-    volumes:
-      - ./dataset.db:/app/DataCollect0r_Bot/dataset.db
-    restart: always
+volumes:
+  db_data:
