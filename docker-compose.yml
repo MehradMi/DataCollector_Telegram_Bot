@@ -1,12 +1,12 @@
-version: "3.9"
+version: "3.8"
 
 services:
-  bot:
+  data_collector_bot:
     build: .
     command: python DataCollect0r_Bot/main.py
     env_file: .env
     volumes:
-      - ./dataset.db:/app/dataset.db
+      - ./dataset.db:/app/DataCollect0r_Bot/dataset.db
     restart: always
 
   uploader:
@@ -15,5 +15,5 @@ services:
     command: sh -c "echo '0 */12 * * * python /app/DataCollect0r_Bot/upload_data.py ...' | crontab - && cron -f"
     env_file: .env
     volumes:
-      - ./dataset.db:/app/dataset.db
+      - ./dataset.db:/app/DataCollect0r_Bot/dataset.db
     restart: always
