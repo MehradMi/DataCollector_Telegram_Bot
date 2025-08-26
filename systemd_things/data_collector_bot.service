@@ -1,0 +1,13 @@
+[Unit]
+Description=Telegram Data Collector Bot
+After=network.target
+
+[Service]
+User=root
+WorkingDirectory=/root/DataCollector_Telegram_Bot
+ExecStart=/root/DataCollector_Telegram_Bot/venv/bin/python3 DataCollect0r_Bot/main.py
+EnvironmentFile=/root/DataCollector_Telegram_Bot/.env
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
