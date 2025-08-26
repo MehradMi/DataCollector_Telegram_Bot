@@ -8,6 +8,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 from dotenv import load_dotenv
 import yt_dlp
+import instaloader
 from database import DB_FILE_PATH
 
 # Load environment variables
@@ -92,6 +93,30 @@ class InstagramDownloader:
         except Exception as e:
             logger.error(f"Failed to download video from {url}: {e}")
             return None
+
+    def download_instagram_video_instaloader(self, url, output_path):
+        match = re.search("instagram\.com/(reel|p)/([A-Za-z0-9_-]+)", url)
+
+        if not match :
+            raise ValueError("Invalid url instagram ! ")
+
+        shortcode = match.group(2)
+
+        os.makedirs (output_path , exist_ok=True)
+
+        L = instaloader.Instaloader(
+            dirname_pattern=os.path.join(output_dir,"{target}"),
+            download_video_thumbnails=False,
+            save_metadata=False,
+            post_metadata_txt_pattern="" 
+        )
+
+        try :
+            post = instaloader.Post.from_shortcode(L.context, shortcode)
+            L.download_post(post , target=f"{post.owner_username}_{shortcode}")
+
+        except Exception as e :
+            logger.error(f"Failed to download video from {url}: {e}")
     
     def upload_to_aws(self, file_path, original_url, metadata):
         """Upload file to AWS via API"""
@@ -281,7 +306,7 @@ class InstagramDownloader:
             
             # Download video
             output_path = os.path.join(self.temp_dir, f"instagram_video_{int(time.time())}.%(ext)s")
-            downloaded_file = self.download_instagram_video(url, output_path)
+            downloaded_file = self.download_instagram_video_instaloader(url, output_path)
             
             if downloaded_file:
                 # Upload to AWS
