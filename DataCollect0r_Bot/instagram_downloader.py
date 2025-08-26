@@ -103,10 +103,10 @@ class InstagramDownloader:
 
         shortcode = match.group(2)
 
-        os.makedirs (output_path , exist_ok=True)
+        os.makedirs(output_path , exist_ok=True)
 
         L = instaloader.Instaloader(
-            dirname_pattern=os.path.join(output_dir,"{target}"),
+            dirname_pattern=os.path.join(output_path,"{target}"),
             download_video_thumbnails=False,
             save_metadata=False,
             post_metadata_txt_pattern="" 
