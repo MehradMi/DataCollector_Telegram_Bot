@@ -182,20 +182,20 @@ def get_download_url_data():
         return []
 
 def change_download_status(rowid, status="downloaded"):
-"""Change the download_status of a specific row in dataset_backup"""
-try:
-    conn = sqlite3.connect(DB_FILE_PATH, check_same_thread=False)
-    cur = conn.cursor()
-    
-    cur.execute(
-        "UPDATE dataset_backup SET download_status = ? WHERE rowid = ?",
-        (status, rowid)
-    )
-    
-    conn.commit()
-    conn.close()
-    logger.info(f"Row {rowid} updated to status '{status}'")
-    
-except Exception as e:
-    logger.error(f"Error updating download status for rowid {rowid}: {e}")
+    """Change the download_status of a specific row in dataset_backup"""
+    try:
+        conn = sqlite3.connect(DB_FILE_PATH, check_same_thread=False)
+        cur = conn.cursor()
+        
+        cur.execute(
+            "UPDATE dataset_backup SET download_status = ? WHERE rowid = ?",
+            (status, rowid)
+        )
+        
+        conn.commit()
+        conn.close()
+        logger.info(f"Row {rowid} updated to status '{status}'")
+        
+    except Exception as e:
+        logger.error(f"Error updating download status for rowid {rowid}: {e}")
     
