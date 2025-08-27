@@ -34,13 +34,8 @@ class ApifyInstagramDownloader:
         self.aws_delete_url = pixoform_aws_delete_url
         self.temp_dir = tempfile.gettempdir()
         
-        # Try different free Apify Instagram actors in order of preference
-        self.actor_ids = [
-            "apilabs/instagram-downloader", # I hope this one works!
-            "shu8hvrXbJbY3Eb9W",  # Instagram Scraper (free tier available)
-            "dSCLg0C3YEZ83HzYX",  # Another Instagram downloader
-            "apify/instagram-scraper"  # Official Apify Instagram scraper
-        ]
+        # Popular Apify Instagram downloaders (you can choose one)
+        self.actor_id = "apilabs/instagram-downloader"  
         
     def get_distinct_urls(self):
         """Get distinct URLs from dataset_backup table"""
