@@ -41,7 +41,8 @@ CREATE TABLE IF NOT EXISTS dataset_backup (
                  url TEXT,
                  date TEXT,
                  description TEXT,
-                 upload_status TEXT
+                 upload_status TEXT,
+                 download_status TEXT DEFAULT 'not_downloaded'
                  )
 """)
         
@@ -147,12 +148,11 @@ def change_upload_status(rowid, telegram_id, username, url, category, date, desc
         cur.execute(f"UPDATE dataset SET upload_status = '{upload_status}' WHERE rowid = ?", (rowid,))
         conn.commit()
 
-        print(description)
-        cur.execute("""
-INSERT INTO dataset_backup (telegram_id, username, category, url, date, description, upload_status) VALUES (?, ?, ?, ?, ?, ?, ?)
-""", 
-(telegram_id, username, category, url, date, description, upload_status)
-)
+        cur.execute(
+                        """
+                            INSERT INTO dataset_backup (telegram_id, username, category, url, date, description, upload_status) VALUES (?, ?, ?, ?, ?, ?, ?)
+                        """, (telegram_id, username, category, url, date, description, upload_status)
+                    )
         
         # Delete from original
         cur.execute("DELETE FROM dataset WHERE rowid = ?", (rowid,))
@@ -163,3 +163,39 @@ INSERT INTO dataset_backup (telegram_id, username, category, url, date, descript
     except Exception as e:
         logger.error(f"Failed to update 'upload_status' column: {e}")
         return []
+
+def get_download_url_data():
+    """Fetch distinct URLs from dataset_backup that are not downloaded yet"""
+    try:
+        conn = sqlite3.connect(DB_FILE_PATH, check_same_thread=False)
+        cur = conn.cursor()
+        
+        # Query all URLs with status "not_downloaded"
+        cur.execute("SELECT DISTINCT url, rowid FROM dataset_backup WHERE download_status = 'not_downloaded'")
+        rows = cur.fetchall()
+        
+        conn.close()
+        return rows  # list of (url, rowid)
+    
+    except Exception as e:
+        logger.error(f"Error fetching download URL data: {e}")
+        return []
+
+def change_download_status(rowid, status="downloaded"):
+"""Change the download_status of a specific row in dataset_backup"""
+try:
+    conn = sqlite3.connect(DB_FILE_PATH, check_same_thread=False)
+    cur = conn.cursor()
+    
+    cur.execute(
+        "UPDATE dataset_backup SET download_status = ? WHERE rowid = ?",
+        (status, rowid)
+    )
+    
+    conn.commit()
+    conn.close()
+    logger.error(f"Row {rowid} updated to status '{status}'")
+    
+except Exception as e:
+    logger.error(f"Error updating download status for rowid {rowid}: {e}")
+    
