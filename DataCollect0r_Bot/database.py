@@ -194,7 +194,7 @@ try:
     
     conn.commit()
     conn.close()
-    logger.error(f"Row {rowid} updated to status '{status}'")
+    logger.info(f"Row {rowid} updated to status '{status}'")
     
 except Exception as e:
     logger.error(f"Error updating download status for rowid {rowid}: {e}")
