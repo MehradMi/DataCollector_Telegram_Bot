@@ -1,4 +1,3 @@
-import re
 import os
 import sqlite3
 import requests
@@ -8,8 +7,7 @@ import tempfile
 from pathlib import Path
 from urllib.parse import urlparse
 from dotenv import load_dotenv
-import yt_dlp
-import instaloader
+from apify_client import ApifyClient
 from database import DB_FILE_PATH
 
 # Load environment variables
@@ -25,11 +23,19 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-class InstagramDownloader:
+class ApifyInstagramDownloader:
     def __init__(self):
+        self.apify_api_token = os.getenv('APIFY_API_TOKEN')
+        if not self.apify_api_token:
+            raise ValueError("APIFY_API_TOKEN not found in environment variables")
+        
+        self.client = ApifyClient(self.apify_api_token)
         self.aws_upload_url = pixoform_aws_upload_url
         self.aws_delete_url = pixoform_aws_delete_url
         self.temp_dir = tempfile.gettempdir()
+        
+        # Popular Apify Instagram downloaders (you can choose one)
+        self.actor_id = "easyapi/instagram-videos-downloader"  # Change this based on your preference
         
     def get_distinct_urls(self):
         """Get distinct URLs from dataset_backup table"""
@@ -48,76 +54,71 @@ class InstagramDownloader:
             logger.error(f"Failed to retrieve URLs from database: {e}")
             return []
     
-    def download_instagram_video(self, url, output_path):
-        """Download Instagram video using yt-dlp"""
+    def download_instagram_video_with_apify(self, url):
+        """Download Instagram video using Apify API"""
         try:
-            # Configure yt-dlp options
-            ydl_opts = {
-                'outtmpl': output_path,
-                'format': 'best[ext=mp4]/best',  # Prefer mp4 format
-                'noplaylist': True,
-                'extract_flat': False,
-                'writeinfojson': False,
-                'writesubtitles': False,
-                'writeautomaticsub': False,
+            logger.info(f"Starting Apify download for: {url}")
+            
+            # Configure the actor input
+            run_input = {
+                "urls": [url],
+                "results": 1,
+                "proxy": {
+                    "useApifyProxy": True,
+                    "apifyProxyGroups": ["RESIDENTIAL"]
+                }
             }
             
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                # Extract info first to get the actual filename
-                info = ydl.extract_info(url, download=False)
-                title = info.get('title', 'instagram_video')
-                
-                # Clean title for filename
-                clean_title = "".join(c for c in title if c.isalnum() or c in (' ', '-', '_')).strip()
-                clean_title = clean_title[:50]  # Limit length
-                
-                # Update output path with clean title
-                final_output = os.path.join(self.temp_dir, f"{clean_title}_{int(time.time())}.%(ext)s")
-                ydl_opts['outtmpl'] = final_output
-                
-                # Download the video
-                with yt_dlp.YoutubeDL(ydl_opts) as ydl_download:
-                    ydl_download.download([url])
-                
-                # Find the actual downloaded file
-                base_path = final_output.replace('.%(ext)s', '')
-                possible_extensions = ['.mp4', '.webm', '.mkv', '.avi']
-                
-                for ext in possible_extensions:
-                    potential_file = base_path + ext
-                    if os.path.exists(potential_file):
-                        return potential_file
-                
-                logger.error(f"Downloaded file not found for URL: {url}")
+            # Run the actor
+            run = self.client.actor(self.actor_id).call(run_input=run_input)
+            
+            # Get results
+            results = []
+            for item in self.client.dataset(run["defaultDatasetId"]).iterate_items():
+                results.append(item)
+            
+            if not results:
+                logger.error(f"No results returned from Apify for URL: {url}")
                 return None
-                
+            
+            # Extract video download URL from the first result
+            video_data = results[0]
+            video_url = None
+            
+            # Different actors return data in different formats, try common field names
+            possible_fields = ['videoUrl', 'video_url', 'downloadUrl', 'url', 'videoDownloadUrl']
+            for field in possible_fields:
+                if field in video_data and video_data[field]:
+                    video_url = video_data[field]
+                    break
+            
+            if not video_url:
+                logger.error(f"No video download URL found in Apify response for: {url}")
+                logger.info(f"Available fields: {list(video_data.keys())}")
+                return None
+            
+            # Download the video file from the URL provided by Apify
+            logger.info(f"Downloading video from Apify URL: {video_url}")
+            
+            response = requests.get(video_url, stream=True, timeout=300)
+            response.raise_for_status()
+            
+            # Generate local filename
+            filename = f"instagram_video_{int(time.time())}.mp4"
+            local_file_path = os.path.join(self.temp_dir, filename)
+            
+            # Save video to local file
+            with open(local_file_path, 'wb') as f:
+                for chunk in response.iter_content(chunk_size=8192):
+                    if chunk:
+                        f.write(chunk)
+            
+            logger.info(f"Successfully downloaded video to: {local_file_path}")
+            return local_file_path
+            
         except Exception as e:
-            logger.error(f"Failed to download video from {url}: {e}")
+            logger.error(f"Failed to download video with Apify from {url}: {e}")
             return None
-
-    def download_instagram_video_instaloader(self, url, output_path):
-        match = re.search("instagram\.com/(reel|p)/([A-Za-z0-9_-]+)", url)
-
-        if not match :
-            raise ValueError("Invalid url instagram ! ")
-
-        shortcode = match.group(2)
-
-        os.makedirs(output_path , exist_ok=True)
-
-        L = instaloader.Instaloader(
-            dirname_pattern=os.path.join(output_path,"{target}"),
-            download_video_thumbnails=False,
-            save_metadata=False,
-            post_metadata_txt_pattern="" 
-        )
-
-        try :
-            post = instaloader.Post.from_shortcode(L.context, shortcode)
-            L.download_post(post , target=f"{post.owner_username}_{shortcode}")
-
-        except Exception as e :
-            logger.error(f"Failed to download video from {url}: {e}")
     
     def upload_to_aws(self, file_path, original_url, metadata):
         """Upload file to AWS via API"""
@@ -133,23 +134,23 @@ class InstagramDownloader:
             with open(file_path, 'rb') as file:
                 files = {'file': (new_filename, file, 'video/mp4')}
                 
-                response = requests.post(self.aws_upload_url, files=files, timeout=300)  # 5 minute timeout
+                response = requests.post(self.aws_upload_url, files=files, timeout=300)
                 
                 if response.status_code == 200:
                     result = response.json()
                     aws_url = result.get('file_url') or result.get('url')
-                    logger.info(f"✅ Successfully uploaded to AWS: {aws_url}")
+                    logger.info(f"Successfully uploaded to AWS: {aws_url}")
                     
                     # Update database with AWS URL
                     self.update_database_with_aws_url(metadata['rowid'], aws_url)
                     
                     return aws_url
                 else:
-                    logger.error(f"❌ AWS upload failed for {original_url}: {response.status_code} - {response.text}")
+                    logger.error(f"AWS upload failed for {original_url}: {response.status_code} - {response.text}")
                     return None
                     
         except Exception as e:
-            logger.error(f"❌ Error uploading {file_path} to AWS: {e}")
+            logger.error(f"Error uploading {file_path} to AWS: {e}")
             return None
     
     def update_database_with_aws_url(self, rowid, aws_url):
@@ -181,9 +182,7 @@ class InstagramDownloader:
         try:
             if os.path.exists(file_path):
                 os.remove(file_path)
-                logger.info(f"🗑️ Cleaned up local file: {file_path}")
-            else:
-                logger.warning(f"File not found for cleanup: {file_path}")
+                logger.info(f"Cleaned up local file: {file_path}")
         except Exception as e:
             logger.error(f"Failed to cleanup file {file_path}: {e}")
     
@@ -234,11 +233,11 @@ class InstagramDownloader:
                     if chunk:
                         f.write(chunk)
             
-            logger.info(f"✅ Successfully downloaded video to: {local_filename}")
+            logger.info(f"Successfully downloaded video to: {local_filename}")
             return local_filename
             
         except Exception as e:
-            logger.error(f"❌ Failed to fetch video from AWS: {e}")
+            logger.error(f"Failed to fetch video from AWS: {e}")
             return None
     
     def fetch_videos_for_processing(self, telegram_id=None, category=None):
@@ -305,9 +304,8 @@ class InstagramDownloader:
             
             logger.info(f"Processing URL: {url}")
             
-            # Download video
-            output_path = os.path.join(self.temp_dir, f"instagram_video_{int(time.time())}.%(ext)s")
-            downloaded_file = self.download_instagram_video_instaloader(url, output_path)
+            # Download video using Apify
+            downloaded_file = self.download_instagram_video_with_apify(url)
             
             if downloaded_file:
                 # Upload to AWS
@@ -315,83 +313,35 @@ class InstagramDownloader:
                 
                 if aws_url:
                     successful_uploads += 1
-                    logger.info(f"✅ Successfully processed: {url}")
+                    logger.info(f"Successfully processed: {url}")
                 else:
                     failed_uploads += 1
-                    logger.error(f"❌ Failed to upload: {url}")
+                    logger.error(f"Failed to upload: {url}")
                 
                 # Always cleanup local file
                 self.cleanup_local_file(downloaded_file)
             else:
                 failed_uploads += 1
-                logger.error(f"❌ Failed to download: {url}")
+                logger.error(f"Failed to download: {url}")
             
-            # Add a small delay to be respectful to Instagram's servers
-            time.sleep(2)
+            # Add delay between requests
+            time.sleep(5)
         
-        logger.info(f"Processing complete! ✅ Success: {successful_uploads}, ❌ Failed: {failed_uploads}")
+        logger.info(f"Processing complete! Success: {successful_uploads}, Failed: {failed_uploads}")
 
 def main():
-    """Main function"""
-    import sys
-    
-    if len(sys.argv) > 1:
-        command = sys.argv[1]
-        
-        if command == "upload":
-            # Upload all videos to AWS
-            logger.info("Starting Instagram Video Downloader and AWS Uploader")
-            downloader = InstagramDownloader()
-            downloader.process_all_videos()
-            logger.info("Upload process completed")
-            
-        elif command == "fetch":
-            # Fetch videos from AWS for processing
-            logger.info("Fetching videos from AWS for processing")
-            downloader = InstagramDownloader()
-            
-            # Optional filters
-            telegram_id = sys.argv[2] if len(sys.argv) > 2 else None
-            category = sys.argv[3] if len(sys.argv) > 3 else None
-            
-            # Fetch videos
-            fetched_videos = downloader.fetch_videos_for_processing(telegram_id, category)
-            
-            if fetched_videos:
-                logger.info(f"Fetched {len(fetched_videos)} videos. Process them here...")
-                
-                # Example: Print video info (replace with your Gemini processing)
-                for video in fetched_videos:
-                    logger.info(f"Video available at: {video['local_file']}")
-                    logger.info(f"Metadata: {video['description']}")
-                    # Here you would call your Gemini API for transcription
-                
-                # Clean up after processing
-                downloader.cleanup_fetched_videos(fetched_videos)
-                logger.info("Cleanup completed")
-            else:
-                logger.info("No videos to fetch")
-                
-        elif command == "list":
-            # List all videos on AWS
-            logger.info("Listing all videos on AWS")
-            downloader = InstagramDownloader()
-            aws_data = downloader.get_aws_urls_from_db()
-            
-            for data in aws_data:
-                rowid, telegram_id, username, category, date, description, original_url, aws_url = data
-                print(f"ID: {rowid}, User: {username} ({telegram_id}), Category: {category}")
-                print(f"Date: {date}, AWS URL: {aws_url}")
-                print(f"Description: {description}")
-                print("-" * 50)
-        else:
-            print("Unknown command. Use 'upload', 'fetch', or 'list'")
-    else:
-        # Default behavior: upload
-        logger.info("Starting Instagram Video Downloader and AWS Uploader")
-        downloader = InstagramDownloader()
+    """Main function - automatically processes all videos"""
+    try:
+        logger.info("Starting Apify Instagram Video Downloader and AWS Uploader")
+        downloader = ApifyInstagramDownloader()
         downloader.process_all_videos()
         logger.info("Process completed")
+            
+    except ValueError as e:
+        logger.error(f"Configuration error: {e}")
+        logger.error("Make sure to add APIFY_API_TOKEN to your .env file")
+    except Exception as e:
+        logger.error(f"Unexpected error: {e}")
 
 if __name__ == "__main__":
     main()
