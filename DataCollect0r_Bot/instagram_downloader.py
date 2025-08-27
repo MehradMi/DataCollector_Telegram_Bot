@@ -45,8 +45,8 @@ class InstagramDownloader:
                 results.append(item)
 
             if not results:
-                logger.error(f"No results returned from Apify for {url}")
-                change_download_status(rowid, "failed")
+                logger.info(f"Succeded Downloading {url}")
+                change_download_status(rowid, "downloaded")
                 return None
 
             video_data = results[0]

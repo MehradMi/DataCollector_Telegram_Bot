@@ -26,12 +26,7 @@ CREATE TABLE IF NOT EXISTS dataset (
                  UNIQUE (telegram_id, url, category)
                  )
 """)
-        conn.commit()
-        conn.close()
         
-        conn = sqlite3.connect(DB_FILE_PATH, check_same_thread=False)
-        cur = conn.cursor()
-
         # Create the "dataset_backup" table
         cur.execute("""
 CREATE TABLE IF NOT EXISTS dataset_backup (
@@ -43,6 +38,19 @@ CREATE TABLE IF NOT EXISTS dataset_backup (
                  description TEXT,
                  upload_status TEXT,
                  download_status TEXT DEFAULT 'not_downloaded'
+                 )
+""")
+        
+        # Create the video analysis table
+        cur.execute("""
+CREATE TABLE IF NOT EXISTS video_analysis (
+                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                 backup_rowid INTEGER,
+                 url TEXT,
+                 video_path TEXT,
+                 analysis TEXT,
+                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                 FOREIGN KEY (backup_rowid) REFERENCES dataset_backup (rowid)
                  )
 """)
         
@@ -145,14 +153,15 @@ def change_upload_status(rowid, telegram_id, username, url, category, date, desc
         conn = sqlite3.connect(DB_FILE_PATH, check_same_thread=False)
         cur = conn.cursor()
 
-        cur.execute(f"UPDATE dataset SET upload_status = '{upload_status}' WHERE rowid = ?", (rowid,))
+        cur.execute("UPDATE dataset SET upload_status = ? WHERE rowid = ?", (upload_status, rowid))
         conn.commit()
 
         cur.execute(
-                        """
-                            INSERT INTO dataset_backup (telegram_id, username, category, url, date, description, upload_status) VALUES (?, ?, ?, ?, ?, ?, ?)
-                        """, (telegram_id, username, category, url, date, description, upload_status)
-                    )
+            """
+            INSERT INTO dataset_backup (telegram_id, username, category, url, date, description, upload_status) 
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (telegram_id, username, category, url, date, description, upload_status)
+        )
         
         # Delete from original
         cur.execute("DELETE FROM dataset WHERE rowid = ?", (rowid,))
@@ -198,4 +207,100 @@ def change_download_status(rowid, status="downloaded"):
         
     except Exception as e:
         logger.error(f"Error updating download status for rowid {rowid}: {e}")
+
+def get_processed_videos():
+    """Get videos that have been processed but may need analysis"""
+    try:
+        conn = sqlite3.connect(DB_FILE_PATH, check_same_thread=False)
+        cur = conn.cursor()
+        
+        cur.execute("SELECT rowid, url FROM dataset_backup WHERE download_status = 'processed'")
+        rows = cur.fetchall()
+        
+        conn.close()
+        return rows
     
+    except Exception as e:
+        logger.error(f"Error fetching processed videos: {e}")
+        return []
+
+def get_video_analysis(backup_rowid=None, url=None):
+    """Get video analysis data"""
+    try:
+        conn = sqlite3.connect(DB_FILE_PATH, check_same_thread=False)
+        cur = conn.cursor()
+        
+        if backup_rowid:
+            cur.execute("SELECT * FROM video_analysis WHERE backup_rowid = ?", (backup_rowid,))
+        elif url:
+            cur.execute("SELECT * FROM video_analysis WHERE url = ?", (url,))
+        else:
+            cur.execute("SELECT * FROM video_analysis ORDER BY created_at DESC")
+        
+        results = cur.fetchall()
+        conn.close()
+        return results
+        
+    except Exception as e:
+        logger.error(f"Failed to retrieve video analysis: {e}")
+        return []
+
+def get_videos_with_analysis():
+    """Get all videos with their analysis data joined"""
+    try:
+        conn = sqlite3.connect(DB_FILE_PATH, check_same_thread=False)
+        cur = conn.cursor()
+        
+        cur.execute("""
+            SELECT 
+                db.rowid,
+                db.telegram_id,
+                db.username,
+                db.category,
+                db.url,
+                db.date,
+                db.description,
+                db.download_status,
+                va.analysis,
+                va.video_path,
+                va.created_at
+            FROM dataset_backup db
+            LEFT JOIN video_analysis va ON db.rowid = va.backup_rowid
+            ORDER BY db.rowid DESC
+        """)
+        
+        results = cur.fetchall()
+        conn.close()
+        return results
+        
+    except Exception as e:
+        logger.error(f"Failed to retrieve videos with analysis: {e}")
+        return []
+
+def search_video_analysis(search_term):
+    """Search through video analysis content"""
+    try:
+        conn = sqlite3.connect(DB_FILE_PATH, check_same_thread=False)
+        cur = conn.cursor()
+        
+        cur.execute("""
+            SELECT 
+                db.rowid,
+                db.url,
+                db.username,
+                db.category,
+                va.analysis,
+                va.created_at
+            FROM video_analysis va
+            JOIN dataset_backup db ON va.backup_rowid = db.rowid
+            WHERE va.analysis LIKE ?
+            ORDER BY va.created_at DESC
+        """, (f"%{search_term}%",))
+        
+        results = cur.fetchall()
+        conn.close()
+        return results
+        
+    except Exception as e:
+        logger.error(f"Failed to search video analysis: {e}")
+        return []
